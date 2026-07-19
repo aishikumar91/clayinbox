@@ -114,38 +114,57 @@ export function unwrapInbound(payload: InboundPayload): InboundPayload {
 }
 
 export async function ensureDefaultIdentities() {
-  const existing = await db.select().from(identities).limit(1);
-  if (existing.length > 0) {
-    return db.select().from(identities).orderBy(desc(identities.isDefault));
+  const existing = await db.select().from(identities);
+  const now = new Date().toISOString();
+  const infoEmail = `info@${MAIL_DOMAIN}`;
+
+  if (existing.length === 0) {
+    const defaults = [
+      {
+        id: nanoid(),
+        email: infoEmail,
+        displayName: "Clay Services",
+        isDefault: true,
+        createdAt: now,
+      },
+      {
+        id: nanoid(),
+        email: `support@${MAIL_DOMAIN}`,
+        displayName: "Clay Support",
+        isDefault: false,
+        createdAt: now,
+      },
+      {
+        id: nanoid(),
+        email: `hello@${MAIL_DOMAIN}`,
+        displayName: "Clay Hello",
+        isDefault: false,
+        createdAt: now,
+      },
+    ];
+    await db.insert(identities).values(defaults);
+    return defaults;
   }
 
-  const now = new Date().toISOString();
-  const defaults = [
-    {
+  const hasInfo = existing.some((row) => row.email === infoEmail);
+  if (!hasInfo) {
+    await db.insert(identities).values({
       id: nanoid(),
-      email: `hello@${MAIL_DOMAIN}`,
+      email: infoEmail,
       displayName: "Clay Services",
       isDefault: true,
       createdAt: now,
-    },
-    {
-      id: nanoid(),
-      email: `support@${MAIL_DOMAIN}`,
-      displayName: "Clay Support",
-      isDefault: false,
-      createdAt: now,
-    },
-    {
-      id: nanoid(),
-      email: `noreply@${MAIL_DOMAIN}`,
-      displayName: "Clay No-Reply",
-      isDefault: false,
-      createdAt: now,
-    },
-  ];
+    });
+  }
 
-  await db.insert(identities).values(defaults);
-  return defaults;
+  // Prefer info@ as the default sender.
+  await db.update(identities).set({ isDefault: false });
+  await db
+    .update(identities)
+    .set({ isDefault: true, displayName: "Clay Services" })
+    .where(eq(identities.email, infoEmail));
+
+  return db.select().from(identities).orderBy(desc(identities.isDefault));
 }
 
 export async function listIdentities() {

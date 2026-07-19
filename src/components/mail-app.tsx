@@ -466,7 +466,7 @@ function ComposeModal({
   const defaultFrom =
     identities.find((item) => item.isDefault)?.email ||
     identities[0]?.email ||
-    `hello@${domain}`;
+    `info@${domain}`;
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(replyTo?.fromAddress || "");
   const [subject, setSubject] = useState(

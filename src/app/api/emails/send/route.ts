@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
-import { MAIL_DOMAIN } from "@/lib/config";
+import { DEFAULT_FROM, MAIL_DOMAIN } from "@/lib/config";
 import {
   getMessage,
   listIdentities,
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   const fromEmail =
     parsed.data.from ||
     identities.find((i) => i.isDefault)?.email ||
+    DEFAULT_FROM ||
     identities[0]?.email;
 
   if (!fromEmail || !fromEmail.endsWith(`@${MAIL_DOMAIN}`)) {
