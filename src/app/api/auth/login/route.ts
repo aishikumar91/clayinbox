@@ -3,11 +3,13 @@ import { z } from "zod";
 import {
   getSession,
   mailboxPasswordConfigured,
+  resolveSessionEmail,
   verifyMailboxPassword,
+  verifyMailboxUsername,
 } from "@/lib/auth";
-import { DEFAULT_FROM } from "@/lib/config";
 
 const bodySchema = z.object({
+  username: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -16,7 +18,10 @@ export async function POST(request: Request) {
     const json = await request.json().catch(() => null);
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Username and password are required" },
+        { status: 400 },
+      );
     }
 
     if (!mailboxPasswordConfigured()) {
@@ -29,18 +34,28 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!verifyMailboxUsername(parsed.data.username)) {
+      return NextResponse.json(
+        {
+          error:
+            "Unknown username. Use info or info@clay-services.icu",
+        },
+        { status: 401 },
+      );
+    }
+
     if (!verifyMailboxPassword(parsed.data.password)) {
       return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
     }
 
     const session = await getSession();
     session.authenticated = true;
-    session.email = DEFAULT_FROM;
+    session.email = resolveSessionEmail(parsed.data.username);
     await session.save();
 
     return NextResponse.json({
       ok: true,
-      email: DEFAULT_FROM,
+      email: session.email,
       databaseConfigured: Boolean(process.env.DATABASE_URL),
     });
   } catch (error) {
@@ -48,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Login failed while creating the session. Check SESSION_SECRET is set in Vercel (any string works).",
+          "Login failed while creating the session. Check SESSION_SECRET is set in Vercel.",
       },
       { status: 500 },
     );

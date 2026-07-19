@@ -2,15 +2,18 @@
 
 import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
+import { EmailLogo, EmailNetworkDiagram } from "@/components/brand";
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const [username, setUsername] = useState("info@clay-services.icu");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{
     mailboxPasswordConfigured: boolean;
     databaseConfigured: boolean;
+    databaseConnected?: boolean;
     plunkConfigured: boolean;
   } | null>(null);
 
@@ -21,6 +24,7 @@ function LoginForm() {
         setStatus({
           mailboxPasswordConfigured: Boolean(data.mailboxPasswordConfigured),
           databaseConfigured: Boolean(data.databaseConfigured),
+          databaseConnected: Boolean(data.databaseConnected),
           plunkConfigured: Boolean(data.plunkConfigured),
         }),
       )
@@ -36,7 +40,7 @@ function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
         credentials: "same-origin",
       });
       const payload = await response.json().catch(() => ({}));
@@ -47,7 +51,6 @@ function LoginForm() {
         return;
       }
 
-      // Hard navigation so the session cookie is definitely picked up.
       window.location.href = searchParams.get("next") || "/inbox";
     } catch {
       setError("Network error while signing in");
@@ -56,78 +59,96 @@ function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="animate-rise w-full max-w-md rounded-[28px] border border-line bg-paper-elevated p-8 shadow-[var(--shadow)]"
-    >
-      <p className="font-[family-name:var(--font-display)] text-4xl tracking-tight text-ink">
-        Clay Inbox
-      </p>
-      <p className="mt-2 text-sm leading-6 text-ink-soft">
-        Standalone webmail for <strong>clay-services.icu</strong> — Plunk for
-        send/receive, full inbox UI in the browser.
-      </p>
-
-      <label className="mt-8 block">
-        <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft uppercase">
-          Mailbox password
-        </span>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-2xl border border-line bg-white px-3 py-3 text-sm outline-none ring-accent/30 focus:ring-2"
-          placeholder="MAILBOX_PASSWORD from Vercel env"
-          autoComplete="current-password"
-        />
-      </label>
-
-      {error ? (
-        <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
-          {error}
+    <div className="login-shell">
+      <section className="login-visual animate-fade">
+        <div className="login-brand-row">
+          <EmailLogo size={56} />
+          <div>
+            <p className="login-brand-name">Clay Inbox</p>
+            <p className="login-brand-sub">clay-services.icu · powered by Plunk</p>
+          </div>
+        </div>
+        <EmailNetworkDiagram className="login-diagram" />
+        <p className="login-caption">
+          Futuristic webmail with secure outbound + inbound routing for your
+          verified domain.
         </p>
-      ) : null}
+      </section>
 
-      {status ? (
-        <ul className="mt-4 space-y-1 text-xs text-ink-soft">
-          <li>
-            Password env:{" "}
-            {status.mailboxPasswordConfigured ? "configured" : "missing"}
-          </li>
-          <li>
-            Supabase DATABASE_URL:{" "}
-            {status.databaseConfigured ? "configured" : "missing"}
-          </li>
-          <li>
-            Plunk API key: {status.plunkConfigured ? "configured" : "missing"}
-          </li>
-        </ul>
-      ) : null}
+      <section className="login-panel animate-rise">
+        <div className="login-panel-mobile-logo">
+          <EmailLogo size={44} />
+        </div>
+        <h1 className="login-title">Sign in to your mailbox</h1>
+        <p className="login-copy">
+          Enter your Clay username and mailbox password to open the inbox
+          dashboard.
+        </p>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-6 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep disabled:opacity-60"
-      >
-        {loading ? "Signing in…" : "Open inbox"}
-      </button>
-    </form>
+        <form onSubmit={onSubmit} className="login-form">
+          <label className="field">
+            <span>Username</span>
+            <input
+              type="text"
+              required
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="info@clay-services.icu"
+            />
+          </label>
+
+          <label className="field">
+            <span>Password</span>
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Mailbox password"
+            />
+          </label>
+
+          {error ? <p className="login-error">{error}</p> : null}
+
+          <button type="submit" disabled={loading} className="login-submit">
+            {loading ? "Signing in…" : "Open Clay Inbox"}
+          </button>
+        </form>
+
+        {status ? (
+          <div className="login-status-grid">
+            <div className={status.mailboxPasswordConfigured ? "ok" : "bad"}>
+              Auth
+            </div>
+            <div
+              className={
+                status.databaseConfigured && status.databaseConnected !== false
+                  ? "ok"
+                  : "bad"
+              }
+            >
+              Database
+            </div>
+            <div className={status.plunkConfigured ? "ok" : "bad"}>Plunk</div>
+          </div>
+        ) : null}
+      </section>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <Suspense
-        fallback={
-          <div className="w-full max-w-md rounded-[28px] border border-line bg-paper-elevated p-8">
-            Loading…
-          </div>
-        }
-      >
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="login-shell">
+          <div className="login-panel">Loading…</div>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

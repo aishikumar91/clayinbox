@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -17,6 +16,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { EmailLogo } from "@/components/brand";
 import { formatFullDate, formatMailboxDate, parseJsonAddresses } from "@/lib/format";
 import type { Identity, Message } from "@/lib/schema";
 
@@ -72,11 +72,9 @@ export function MailApp({
       ]);
       const mailJson = await mailRes.json().catch(() => ({}));
       const idJson = await idRes.json().catch(() => ({}));
-
       if (!mailRes.ok) {
         throw new Error(mailJson.error || mailJson.message || "Failed to load mailbox");
       }
-
       setEmails(mailJson.emails || []);
       setCounts(mailJson.counts || {});
       if (idRes.ok) setIdentities(idJson.identities || []);
@@ -142,12 +140,11 @@ export function MailApp({
 
   async function patchSelected(body: Record<string, unknown>) {
     if (!selected) return;
-    const response = await fetch(`/api/emails/${selected.id}`, {
+    await fetch(`/api/emails/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!response.ok) return;
     await load(folder, query);
   }
 
@@ -159,72 +156,53 @@ export function MailApp({
   return (
     <div className="mail-shell">
       <aside className="mail-sidebar">
-        <div className="animate-rise">
-          <p className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-ink">
-            {appName}
-          </p>
-          <p className="mt-1 text-sm text-ink-soft">@{domain}</p>
-          <p className="mt-3 text-xs uppercase tracking-[0.18em] text-ink-soft">
-            Plunk inbound + outbound
-          </p>
+        <div className="brand-block animate-rise">
+          <EmailLogo size={42} />
+          <div>
+            <p className="brand-title">{appName}</p>
+            <p className="brand-sub">@{domain}</p>
+          </div>
         </div>
 
         <button
           type="button"
+          className="mail-compose-btn"
           onClick={() => openCompose(null)}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep"
         >
           <MailPlus className="h-4 w-4" />
           Compose
         </button>
 
-        <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible">
+        <nav className="mail-nav">
           {folders.map((item) => {
             const Icon = item.icon;
-            const active = folder === item.id;
             const unread = counts[item.id]?.unread || 0;
             return (
               <button
                 key={item.id}
                 type="button"
+                className={folder === item.id ? "active" : ""}
                 onClick={() => {
                   setFolder(item.id);
                   setSelectedId(null);
                 }}
-                className={`inline-flex min-w-[7.5rem] items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left text-sm transition md:min-w-0 ${
-                  active
-                    ? "bg-accent-soft text-accent-deep"
-                    : "text-ink-soft hover:bg-white/70 hover:text-ink"
-                }`}
               >
                 <span className="inline-flex items-center gap-2">
                   <Icon className="h-4 w-4" />
                   {item.label}
                 </span>
-                {unread > 0 ? (
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white">
-                    {unread}
-                  </span>
-                ) : null}
+                {unread > 0 ? <span className="badge">{unread}</span> : null}
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto hidden pt-8 md:block">
-          <button
-            type="button"
-            onClick={() => void load(folder, query)}
-            className="inline-flex items-center gap-2 text-sm text-ink-soft transition hover:text-ink"
-          >
+        <div className="mail-sidebar-footer">
+          <button type="button" onClick={() => void load(folder, query)}>
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            Refresh stream
           </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="mt-3 flex items-center gap-2 text-sm text-ink-soft transition hover:text-ink"
-          >
+          <button type="button" onClick={logout}>
             <LogOut className="h-4 w-4" />
             Sign out
           </button>
@@ -232,120 +210,113 @@ export function MailApp({
       </aside>
 
       <section className="mail-list-pane">
-        <header className="border-b border-line px-4 py-4 md:px-5">
+        <header className="mail-pane-header">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <h1 className="font-[family-name:var(--font-display)] text-2xl tracking-tight capitalize">
-                {folder}
-              </h1>
+              <h1 className="text-2xl capitalize tracking-tight">{folder}</h1>
               <p className="text-xs text-ink-soft">
-                {emails.length} message{emails.length === 1 ? "" : "s"}
+                {emails.length} message{emails.length === 1 ? "" : "s"} · table view
               </p>
             </div>
-            <button
-              type="button"
-              className="rounded-xl border border-line bg-white p-2 text-ink-soft md:hidden"
-              onClick={() => void load(folder, query)}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+            <div className="mobile-top-actions">
+              <button
+                type="button"
+                className="rounded-xl border border-line bg-white p-2 text-ink-soft"
+                onClick={() => void load(folder, query)}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded-xl border border-line bg-white p-2 text-ink-soft"
+                onClick={logout}
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-          <label className="relative mt-3 block">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <label className="mail-search">
+            <Search className="h-4 w-4" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") void load(folder, query);
               }}
-              placeholder="Search subject, sender, preview"
-              className="w-full rounded-2xl border border-line bg-white/90 py-2.5 pr-3 pl-10 text-sm outline-none ring-accent/30 focus:ring-2"
+              placeholder="Search sender, subject, preview"
             />
           </label>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mail-table-wrap">
           {loading ? (
-            <div className="flex h-40 items-center justify-center text-ink-soft">
-              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              Loading mailbox…
+            <div className="mail-loading">
+              <LoaderCircle className="mx-auto mb-2 h-5 w-5 animate-spin" />
+              Syncing mailbox…
             </div>
           ) : error ? (
-            <div className="m-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-warn">
+            <div className="mail-error">
               <p className="font-semibold">Mailbox unavailable</p>
-              <p className="mt-1">{error}</p>
-              <p className="mt-3 text-ink-soft">
-                Set <code>DATABASE_URL</code> (Supabase pooler) and run the SQL
-                migration, then refresh.
-              </p>
+              <p className="mt-1 text-sm">{error}</p>
             </div>
           ) : emails.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
-              <p className="font-[family-name:var(--font-display)] text-2xl">
-                {folder === "inbox" ? "Inbox zero" : "Nothing here"}
+            <div className="mail-empty">
+              <EmailLogo size={48} className="mx-auto mb-3" />
+              <p className="font-[family-name:var(--font-display)] text-2xl text-ink">
+                {folder === "inbox" ? "Inbox zero" : "No messages"}
               </p>
-              <p className="mt-2 max-w-sm text-sm text-ink-soft">
+              <p className="mx-auto mt-2 max-w-sm text-sm">
                 {folder === "inbox"
-                  ? "New mail arrives when Plunk posts to /api/webhooks/plunk."
-                  : "Messages you move or send will show up in this folder."}
+                  ? "Inbound Plunk webhooks will appear here as a live table."
+                  : "Moved or sent mail will populate this folder table."}
               </p>
               <button
                 type="button"
+                className="mail-compose-btn mx-auto mt-4 max-w-xs"
                 onClick={() => openCompose(null)}
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
               >
                 <Pencil className="h-4 w-4" />
-                Write an email
+                Write email
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-line">
-              {emails.map((email) => {
-                const active = email.id === selectedId;
-                const counterpart =
-                  folder === "sent"
-                    ? parseJsonAddresses(email.toAddresses).join(", ")
-                    : email.fromName || email.fromAddress;
-                return (
-                  <li key={email.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(email.id)}
-                      className={`grid w-full grid-cols-[1fr_auto] gap-2 px-4 py-3 text-left transition md:px-5 ${
-                        active
-                          ? "bg-accent-soft/70"
-                          : email.read
-                            ? "hover:bg-panel/60"
-                            : "bg-accent-soft/20 hover:bg-accent-soft/40"
+            <table className="mail-table">
+              <thead>
+                <tr>
+                  <th>From / To</th>
+                  <th>Subject</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emails.map((email) => {
+                  const counterpart =
+                    folder === "sent"
+                      ? parseJsonAddresses(email.toAddresses).join(", ")
+                      : email.fromName || email.fromAddress;
+                  return (
+                    <tr
+                      key={email.id}
+                      className={`${email.id === selectedId ? "active" : ""} ${
+                        email.read ? "" : "unread"
                       }`}
+                      onClick={() => setSelectedId(email.id)}
                     >
-                      <div className="min-w-0">
-                        <p
-                          className={`truncate text-sm ${
-                            email.read ? "text-ink-soft" : "font-semibold text-ink"
-                          }`}
-                        >
-                          {counterpart}
-                        </p>
-                        <p
-                          className={`truncate text-sm ${
-                            email.read ? "text-ink-soft" : "font-medium text-ink"
-                          }`}
-                        >
-                          {email.subject}
-                        </p>
-                        <p className="truncate text-xs text-ink-soft">
+                      <td>{counterpart}</td>
+                      <td>
+                        <span className="subject">{email.subject}</span>
+                        <span className="preview">
                           {email.preview || "No preview"}
-                        </p>
-                      </div>
-                      <span className="text-xs text-ink-soft">
+                        </span>
+                      </td>
+                      <td className="date">
                         {formatMailboxDate(email.receivedAt)}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </section>
@@ -353,30 +324,31 @@ export function MailApp({
       <section className="mail-reader-pane">
         {!selected ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <p className="font-[family-name:var(--font-display)] text-3xl">
+            <EmailLogo size={64} />
+            <p className="mt-4 font-[family-name:var(--font-display)] text-3xl">
               Clay Inbox
             </p>
             <p className="mt-2 max-w-md text-sm text-ink-soft">
-              Full webmail for @{domain}. Select a message or compose a new one —
-              outbound goes through Plunk, inbound lands via webhook.
+              Select a row from the message table, or compose a new message.
+              Outbound uses Plunk · inbound lands via webhook.
             </p>
           </div>
         ) : (
           <>
-            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-4">
+            <header className="mail-pane-header flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="truncate font-[family-name:var(--font-display)] text-2xl tracking-tight md:text-3xl">
+                <h2 className="text-2xl tracking-tight md:text-3xl">
                   {selected.subject}
                 </h2>
                 <p className="mt-1 text-xs text-ink-soft">
                   {formatFullDate(selected.receivedAt)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="mail-reader-actions">
                 <button
                   type="button"
+                  className="primary"
                   onClick={() => openCompose(selected)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white"
                 >
                   <Reply className="h-4 w-4" />
                   Reply
@@ -384,15 +356,14 @@ export function MailApp({
                 <button
                   type="button"
                   onClick={() => void patchSelected({ folder: "archive" })}
-                  className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink-soft"
                 >
                   <Archive className="h-4 w-4" />
                   Archive
                 </button>
                 <button
                   type="button"
+                  className="danger"
                   onClick={() => void patchSelected({ folder: "trash" })}
-                  className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-danger"
                 >
                   <Trash2 className="h-4 w-4" />
                   Trash
@@ -400,8 +371,8 @@ export function MailApp({
               </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-              <div className="rounded-2xl border border-line bg-panel/40 p-4 text-sm">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+              <div className="mail-meta-card">
                 <p>
                   <span className="text-ink-soft">From</span>{" "}
                   <strong>
@@ -420,8 +391,7 @@ export function MailApp({
                 className="email-body mt-6 max-w-3xl"
                 dangerouslySetInnerHTML={{
                   __html:
-                    selected.bodyHtml ||
-                    `<p>${selected.bodyText || ""}</p>`,
+                    selected.bodyHtml || `<p>${selected.bodyText || ""}</p>`,
                 }}
               />
             </div>
@@ -515,11 +485,14 @@ function ComposeModal({
     <div className="mail-compose-overlay animate-fade">
       <form onSubmit={submit} className="mail-compose-panel animate-rise">
         <header className="flex items-center justify-between border-b border-line px-5 py-4">
-          <div>
-            <h2 className="font-[family-name:var(--font-display)] text-2xl">
-              {replyTo ? "Reply" : "New message"}
-            </h2>
-            <p className="text-xs text-ink-soft">Sends through Plunk</p>
+          <div className="flex items-center gap-3">
+            <EmailLogo size={32} />
+            <div>
+              <h2 className="font-[family-name:var(--font-display)] text-2xl">
+                {replyTo ? "Reply" : "New message"}
+              </h2>
+              <p className="text-xs text-ink-soft">Sends through Plunk</p>
+            </div>
           </div>
           <button
             type="button"
@@ -531,18 +504,21 @@ function ComposeModal({
         </header>
 
         <div className="space-y-3 px-5 py-4">
-          <label className="block text-sm">
-            <span className="mb-1 block text-xs font-semibold tracking-wide text-ink-soft uppercase">
-              From
-            </span>
+          <label className="field">
+            <span>From</span>
             <select
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className="w-full rounded-2xl border border-line bg-white px-3 py-2.5 outline-none ring-accent/30 focus:ring-2"
             >
               {(identities.length
                 ? identities
-                : [{ id: "fallback", email: defaultFrom, displayName: "Clay Services" }]
+                : [
+                    {
+                      id: "fallback",
+                      email: defaultFrom,
+                      displayName: "Clay Services",
+                    },
+                  ]
               ).map((identity) => (
                 <option key={identity.id || identity.email} value={identity.email}>
                   {identity.displayName} &lt;{identity.email}&gt;
@@ -550,57 +526,37 @@ function ComposeModal({
               ))}
             </select>
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-xs font-semibold tracking-wide text-ink-soft uppercase">
-              To
-            </span>
+          <label className="field">
+            <span>To</span>
             <input
               required
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className="w-full rounded-2xl border border-line bg-white px-3 py-2.5 outline-none ring-accent/30 focus:ring-2"
               placeholder="recipient@example.com"
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-xs font-semibold tracking-wide text-ink-soft uppercase">
-              Subject
-            </span>
+          <label className="field">
+            <span>Subject</span>
             <input
               required
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
-              className="w-full rounded-2xl border border-line bg-white px-3 py-2.5 outline-none ring-accent/30 focus:ring-2"
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-xs font-semibold tracking-wide text-ink-soft uppercase">
-              Message
-            </span>
+          <label className="field">
+            <span>Message</span>
             <textarea
               required
               rows={12}
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              className="w-full resize-y rounded-2xl border border-line bg-white px-3 py-3 leading-6 outline-none ring-accent/30 focus:ring-2"
             />
           </label>
-          {error ? (
-            <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className="login-error">{error}</p> : null}
         </div>
 
-        <footer className="flex items-center justify-between border-t border-line px-5 py-4">
-          <Link href="/login" className="text-xs text-ink-soft md:hidden">
-            Account
-          </Link>
-          <button
-            type="submit"
-            disabled={sending}
-            className="rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-          >
+        <footer className="flex items-center justify-end border-t border-line px-5 py-4">
+          <button type="submit" disabled={sending} className="login-submit">
             {sending ? "Sending…" : "Send with Plunk"}
           </button>
         </footer>
