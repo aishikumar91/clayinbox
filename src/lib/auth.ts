@@ -17,15 +17,6 @@ export async function requireSession() {
   return session;
 }
 
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) {
-    return false;
-  }
-  return timingSafeEqual(left, right);
-}
-
 /** Compare passwords by hashing both sides so length differences don't leak. */
 export function verifyMailboxPassword(password: string): boolean {
   const expected = process.env.MAILBOX_PASSWORD;

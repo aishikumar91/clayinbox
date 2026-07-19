@@ -94,8 +94,45 @@ export function MailApp({
   }, []);
 
   useEffect(() => {
-    void load(folder, query);
-  }, [folder, load]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ folder });
+        const [mailRes, idRes] = await Promise.all([
+          fetch(`/api/emails?${params.toString()}`),
+          fetch("/api/identities"),
+        ]);
+        if (cancelled) return;
+        const mailJson = await mailRes.json().catch(() => ({}));
+        const idJson = await idRes.json().catch(() => ({}));
+        if (!mailRes.ok) {
+          throw new Error(
+            mailJson.error || mailJson.message || "Failed to load mailbox",
+          );
+        }
+        setEmails(mailJson.emails || []);
+        setCounts(mailJson.counts || {});
+        if (idRes.ok) setIdentities(idJson.identities || []);
+        setSelectedId((current) => {
+          const list: Message[] = mailJson.emails || [];
+          if (current && list.some((item) => item.id === current)) return current;
+          return list[0]?.id ?? null;
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setEmails([]);
+          setError(err instanceof Error ? err.message : "Failed to load mailbox");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [folder]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
