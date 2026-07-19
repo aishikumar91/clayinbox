@@ -300,33 +300,6 @@ a {
   animation: none;
 }
 
-.login-status-grid {
-  margin-top: 1.25rem;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-}
-
-.login-status-grid div {
-  border-radius: 999px;
-  text-align: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.45rem 0.3rem;
-}
-
-.login-status-grid .ok {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-}
-
-.login-status-grid .bad {
-  background: #f6e8e8;
-  color: var(--danger);
-}
-
 /* ——— Mail shell ——— */
 .mail-shell {
   display: grid;

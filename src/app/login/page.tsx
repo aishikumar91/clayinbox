@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { EmailLogo, EmailNetworkDiagram } from "@/components/brand";
 
 function LoginForm() {
@@ -10,26 +10,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<{
-    mailboxPasswordConfigured: boolean;
-    databaseConfigured: boolean;
-    databaseConnected?: boolean;
-    plunkConfigured: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then((data) =>
-        setStatus({
-          mailboxPasswordConfigured: Boolean(data.mailboxPasswordConfigured),
-          databaseConfigured: Boolean(data.databaseConfigured),
-          databaseConnected: Boolean(data.databaseConnected),
-          plunkConfigured: Boolean(data.plunkConfigured),
-        }),
-      )
-      .catch(() => setStatus(null));
-  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -116,24 +96,6 @@ function LoginForm() {
             {loading ? "Signing in…" : "Open Clay Inbox"}
           </button>
         </form>
-
-        {status ? (
-          <div className="login-status-grid">
-            <div className={status.mailboxPasswordConfigured ? "ok" : "bad"}>
-              Auth
-            </div>
-            <div
-              className={
-                status.databaseConfigured && status.databaseConnected !== false
-                  ? "ok"
-                  : "bad"
-              }
-            >
-              Database
-            </div>
-            <div className={status.plunkConfigured ? "ok" : "bad"}>Plunk</div>
-          </div>
-        ) : null}
       </section>
     </div>
   );
