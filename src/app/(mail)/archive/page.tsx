@@ -1,16 +1,10 @@
-import { MessageList } from "@/components/message-list";
-import { listMessages } from "@/lib/mail";
+import { MailApp } from "@/components/mail-app";
+import { APP_NAME, MAIL_DOMAIN } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function ArchivePage() {
-  const emails = await listMessages("archive");
+export default function ArchivePage() {
   return (
-    <MessageList
-      emails={emails}
-      folder="archive"
-      title="Archive"
-      emptyLabel="Archived conversations will show up here."
-    />
+    <MailApp appName={APP_NAME} domain={MAIL_DOMAIN} initialFolder="archive" />
   );
 }

@@ -1,27 +1,12 @@
-import { getIronSession, type SessionOptions } from "iron-session";
+import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { getSessionOptions, type SessionData } from "./session";
 
-export type SessionData = {
-  authenticated?: boolean;
-  email?: string;
-};
-
-const sessionOptions: SessionOptions = {
-  password:
-    process.env.SESSION_SECRET ||
-    "emailbox-dev-secret-change-me-32chars-min!!",
-  cookieName: "emailbox_session",
-  cookieOptions: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 14,
-  },
-};
+export type { SessionData };
 
 export async function getSession() {
-  return getIronSession<SessionData>(await cookies(), sessionOptions);
+  return getIronSession<SessionData>(await cookies(), getSessionOptions());
 }
 
 export async function requireSession() {
@@ -41,10 +26,17 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+/** Compare passwords by hashing both sides so length differences don't leak. */
 export function verifyMailboxPassword(password: string): boolean {
   const expected = process.env.MAILBOX_PASSWORD;
   if (!expected) {
     return false;
   }
-  return safeEqual(password, expected);
+  const left = createHash("sha256").update(password).digest();
+  const right = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(left, right);
+}
+
+export function mailboxPasswordConfigured(): boolean {
+  return Boolean(process.env.MAILBOX_PASSWORD);
 }

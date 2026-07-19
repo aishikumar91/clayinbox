@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { listIdentities } from "@/lib/mail";
+import { safeListIdentities } from "@/lib/mail-safe";
 
 export async function GET() {
   const session = await requireSession();
@@ -8,5 +8,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({ identities: await listIdentities() });
+  const { identities, error } = await safeListIdentities();
+  if (error) {
+    return NextResponse.json(
+      { identities: [], error: error.message, code: error.code },
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json({ identities });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
 function LoginForm() {
   const router = useRouter();
@@ -9,27 +9,51 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<{
+    mailboxPasswordConfigured: boolean;
+    databaseConfigured: boolean;
+    plunkConfigured: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((data) =>
+        setStatus({
+          mailboxPasswordConfigured: Boolean(data.mailboxPasswordConfigured),
+          databaseConfigured: Boolean(data.databaseConfigured),
+          plunkConfigured: Boolean(data.plunkConfigured),
+        }),
+      )
+      .catch(() => setStatus(null));
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    setLoading(false);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        credentials: "same-origin",
+      });
+      const payload = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      setError(payload.error || "Unable to sign in");
-      return;
+      if (!response.ok) {
+        setError(payload.error || "Unable to sign in");
+        setLoading(false);
+        return;
+      }
+
+      // Hard navigation so the session cookie is definitely picked up.
+      window.location.href = searchParams.get("next") || "/inbox";
+    } catch {
+      setError("Network error while signing in");
+      setLoading(false);
     }
-
-    router.push(searchParams.get("next") || "/inbox");
-    router.refresh();
   }
 
   return (
@@ -38,11 +62,11 @@ function LoginForm() {
       className="animate-rise w-full max-w-md rounded-[28px] border border-line bg-paper-elevated p-8 shadow-[var(--shadow)]"
     >
       <p className="font-[family-name:var(--font-display)] text-4xl tracking-tight text-ink">
-        Emailbox
+        Clay Inbox
       </p>
       <p className="mt-2 text-sm leading-6 text-ink-soft">
-        Webmail for <strong>clay-services.icu</strong>, connected to Plunk for
-        send and inbound delivery.
+        Standalone webmail for <strong>clay-services.icu</strong> — Plunk for
+        send/receive, full inbox UI in the browser.
       </p>
 
       <label className="mt-8 block">
@@ -55,7 +79,7 @@ function LoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="w-full rounded-2xl border border-line bg-white px-3 py-3 text-sm outline-none ring-accent/30 focus:ring-2"
-          placeholder="Enter mailbox password"
+          placeholder="MAILBOX_PASSWORD from Vercel env"
           autoComplete="current-password"
         />
       </label>
@@ -66,12 +90,28 @@ function LoginForm() {
         </p>
       ) : null}
 
+      {status ? (
+        <ul className="mt-4 space-y-1 text-xs text-ink-soft">
+          <li>
+            Password env:{" "}
+            {status.mailboxPasswordConfigured ? "configured" : "missing"}
+          </li>
+          <li>
+            Supabase DATABASE_URL:{" "}
+            {status.databaseConfigured ? "configured" : "missing"}
+          </li>
+          <li>
+            Plunk API key: {status.plunkConfigured ? "configured" : "missing"}
+          </li>
+        </ul>
+      ) : null}
+
       <button
         type="submit"
         disabled={loading}
         className="mt-6 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent-deep disabled:opacity-60"
       >
-        {loading ? "Signing in…" : "Open mailbox"}
+        {loading ? "Signing in…" : "Open inbox"}
       </button>
     </form>
   );

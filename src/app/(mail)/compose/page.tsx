@@ -1,16 +1,10 @@
-import { ComposeForm } from "@/components/compose-form";
-import { getMessage, listIdentities } from "@/lib/mail";
+import { MailApp } from "@/components/mail-app";
+import { APP_NAME, MAIL_DOMAIN } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function ComposePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ replyTo?: string }>;
-}) {
-  const params = await searchParams;
-  const identities = await listIdentities();
-  const replyTo = params.replyTo ? (await getMessage(params.replyTo)) ?? null : null;
-
-  return <ComposeForm identities={identities} replyTo={replyTo} />;
+export default function ComposePage() {
+  return (
+    <MailApp appName={APP_NAME} domain={MAIL_DOMAIN} initialFolder="inbox" />
+  );
 }

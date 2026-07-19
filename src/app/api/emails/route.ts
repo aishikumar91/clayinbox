@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { folderCounts, listMessages, type Folder } from "@/lib/mail";
+import { safeFolderCounts, safeListMessages } from "@/lib/mail-safe";
+import type { Folder } from "@/lib/mail";
 
 const folders = new Set(["inbox", "sent", "archive", "trash"]);
 
@@ -18,10 +19,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
   }
 
-  const [emails, counts] = await Promise.all([
-    listMessages(folderParam as Folder, query),
-    folderCounts(),
-  ]);
+  const [{ emails, error: listError }, { counts, error: countError }] =
+    await Promise.all([
+      safeListMessages(folderParam as Folder, query),
+      safeFolderCounts(),
+    ]);
+
+  const error = listError || countError;
+  if (error) {
+    return NextResponse.json(
+      { error: error.message, code: error.code, emails: [], counts },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json({ emails, counts });
 }

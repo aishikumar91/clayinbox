@@ -1,16 +1,10 @@
-import { MessageList } from "@/components/message-list";
-import { listMessages } from "@/lib/mail";
+import { MailApp } from "@/components/mail-app";
+import { APP_NAME, MAIL_DOMAIN } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrashPage() {
-  const emails = await listMessages("trash");
+export default function TrashPage() {
   return (
-    <MessageList
-      emails={emails}
-      folder="trash"
-      title="Trash"
-      emptyLabel="Deleted messages land here."
-    />
+    <MailApp appName={APP_NAME} domain={MAIL_DOMAIN} initialFolder="trash" />
   );
 }

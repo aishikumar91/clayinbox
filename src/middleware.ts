@@ -1,8 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
-import type { SessionData } from "@/lib/auth";
+import { getSessionOptions, type SessionData } from "@/lib/session";
 
-const publicPaths = ["/login", "/api/auth/login", "/api/webhooks/plunk"];
+const publicPaths = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/status",
+  "/api/webhooks/plunk",
+  "/api/health",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,32 +16,26 @@ export async function middleware(request: NextRequest) {
   if (
     publicPaths.some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
-    ) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    )
   ) {
     return NextResponse.next();
   }
 
   const response = NextResponse.next();
-  const session = await getIronSession<SessionData>(request, response, {
-    password:
-      process.env.SESSION_SECRET ||
-      "emailbox-dev-secret-change-me-32chars-min!!",
-    cookieName: "emailbox_session",
-    cookieOptions: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      sameSite: "lax",
-    },
-  });
+  const session = await getIronSession<SessionData>(
+    request,
+    response,
+    getSessionOptions(),
+  );
 
   if (!session.authenticated) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("next", pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
@@ -43,5 +43,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)",
+  ],
 };

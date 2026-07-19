@@ -1,16 +1,10 @@
-import { MessageList } from "@/components/message-list";
-import { listMessages } from "@/lib/mail";
+import { MailApp } from "@/components/mail-app";
+import { APP_NAME, MAIL_DOMAIN } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function SentPage() {
-  const emails = await listMessages("sent");
+export default function SentPage() {
   return (
-    <MessageList
-      emails={emails}
-      folder="sent"
-      title="Sent"
-      emptyLabel="Outbound mail sent through Plunk will be stored in this folder."
-    />
+    <MailApp appName={APP_NAME} domain={MAIL_DOMAIN} initialFolder="sent" />
   );
 }

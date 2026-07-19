@@ -1,16 +1,10 @@
-import { MessageList } from "@/components/message-list";
-import { listMessages } from "@/lib/mail";
+import { MailApp } from "@/components/mail-app";
+import { APP_NAME, MAIL_DOMAIN } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function InboxPage() {
-  const emails = await listMessages("inbox");
+export default function InboxPage() {
   return (
-    <MessageList
-      emails={emails}
-      folder="inbox"
-      title="Inbox"
-      emptyLabel="When Plunk delivers inbound mail to the webhook, messages will appear here."
-    />
+    <MailApp appName={APP_NAME} domain={MAIL_DOMAIN} initialFolder="inbox" />
   );
 }
