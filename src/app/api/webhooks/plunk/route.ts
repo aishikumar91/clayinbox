@@ -5,7 +5,6 @@ import { storeInbound, type InboundPayload } from "@/lib/mail";
 function authorized(request: Request): boolean {
   const secret = process.env.PLUNK_WEBHOOK_SECRET;
   if (!secret) {
-    // Allow open webhook only in development for easier local testing.
     return process.env.NODE_ENV !== "production";
   }
 
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const email = storeInbound(payload);
+  const email = await storeInbound(payload);
   return NextResponse.json({ ok: true, id: email.id });
 }
 

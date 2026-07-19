@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const identities = listIdentities();
+  const identities = await listIdentities();
   const fromEmail =
     parsed.data.from ||
     identities.find((i) => i.isDefault)?.email ||
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   let subject = parsed.data.subject;
   let inReplyTo: string | undefined;
   if (parsed.data.replyToId) {
-    const original = getMessage(parsed.data.replyToId);
+    const original = await getMessage(parsed.data.replyToId);
     if (original) {
       inReplyTo = original.messageId || original.id;
       if (!/^re:/i.test(subject)) {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   const plunkEmailId = result.data?.emails?.[0]?.email;
-  const stored = storeOutbound({
+  const stored = await storeOutbound({
     fromEmail,
     fromName: identity?.displayName,
     to: toList,

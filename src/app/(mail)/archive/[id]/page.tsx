@@ -10,8 +10,8 @@ export default async function ArchiveMessagePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const email = getMessage(id);
+  const email = await getMessage(id);
   if (!email || email.folder !== "archive") notFound();
-  if (!email.read) markRead(id, true);
+  if (!email.read) await markRead(id, true);
   return <MessageView email={{ ...email, read: true }} folder="archive" />;
 }

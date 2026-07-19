@@ -1,60 +1,38 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-const defaultPath = join(process.cwd(), "data", "emailbox.db");
-const dbPath = process.env.DATABASE_PATH || defaultPath;
+type Db = PostgresJsDatabase<typeof schema>;
 
-mkdirSync(dirname(dbPath), { recursive: true });
+let _db: Db | null = null;
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+export function getDb(): Db {
+  if (_db) return _db;
 
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    direction TEXT NOT NULL,
-    folder TEXT NOT NULL DEFAULT 'inbox',
-    message_id TEXT,
-    in_reply_to TEXT,
-    thread_key TEXT NOT NULL,
-    from_address TEXT NOT NULL,
-    from_name TEXT,
-    to_addresses TEXT NOT NULL,
-    cc_addresses TEXT,
-    subject TEXT NOT NULL DEFAULT '(no subject)',
-    body_html TEXT,
-    body_text TEXT,
-    preview TEXT NOT NULL DEFAULT '',
-    read INTEGER NOT NULL DEFAULT 0,
-    starred INTEGER NOT NULL DEFAULT 0,
-    spam_verdict TEXT,
-    virus_verdict TEXT,
-    spf_verdict TEXT,
-    dkim_verdict TEXT,
-    dmarc_verdict TEXT,
-    plunk_email_id TEXT,
-    raw_payload TEXT,
-    received_at TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL is required. Use your Supabase Postgres URI (Transaction pooler on Vercel).",
+    );
+  }
 
-  CREATE INDEX IF NOT EXISTS idx_messages_folder_received
-    ON messages(folder, received_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_messages_thread
-    ON messages(thread_key, received_at DESC);
+  // prepare: false is required for Supabase transaction pooler / PgBouncer.
+  const client = postgres(connectionString, {
+    prepare: false,
+    max: 1,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
 
-  CREATE TABLE IF NOT EXISTS identities (
-    id TEXT PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    display_name TEXT NOT NULL,
-    is_default INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-`);
+  _db = drizzle(client, { schema });
+  return _db;
+}
 
-export const db = drizzle(sqlite, { schema });
-export { sqlite };
+/** @deprecated prefer getDb() — kept for shorter call sites */
+export const db = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    const real = getDb() as unknown as Record<PropertyKey, unknown>;
+    const value = Reflect.get(real, prop, receiver);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});

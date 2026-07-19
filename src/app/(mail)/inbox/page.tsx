@@ -3,8 +3,8 @@ import { listMessages } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
-export default function InboxPage() {
-  const emails = listMessages("inbox");
+export default async function InboxPage() {
+  const emails = await listMessages("inbox");
   return (
     <MessageList
       emails={emails}

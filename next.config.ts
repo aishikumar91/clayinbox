@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3"],
-  output: "standalone",
+  // Standalone is useful for Docker; Vercel ignores it.
+  output: process.env.VERCEL ? undefined : "standalone",
 };
 
 export default nextConfig;

@@ -18,13 +18,13 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const email = getMessage(id);
+  const email = await getMessage(id);
   if (!email) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   if (!email.read) {
-    markRead(id, true);
+    await markRead(id, true);
     email.read = true;
   }
 
@@ -41,7 +41,7 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const email = getMessage(id);
+  const email = await getMessage(id);
   if (!email) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -52,11 +52,11 @@ export async function PATCH(
   }
 
   if (typeof parsed.data.read === "boolean") {
-    markRead(id, parsed.data.read);
+    await markRead(id, parsed.data.read);
   }
   if (parsed.data.folder) {
-    moveMessage(id, parsed.data.folder as Folder);
+    await moveMessage(id, parsed.data.folder as Folder);
   }
 
-  return NextResponse.json({ email: getMessage(id) });
+  return NextResponse.json({ email: await getMessage(id) });
 }

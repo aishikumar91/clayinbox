@@ -18,6 +18,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
   }
 
-  const emails = listMessages(folderParam as Folder, query);
-  return NextResponse.json({ emails, counts: folderCounts() });
+  const [emails, counts] = await Promise.all([
+    listMessages(folderParam as Folder, query),
+    folderCounts(),
+  ]);
+
+  return NextResponse.json({ emails, counts });
 }

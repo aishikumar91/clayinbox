@@ -3,8 +3,8 @@ import { listMessages } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
-export default function TrashPage() {
-  const emails = listMessages("trash");
+export default async function TrashPage() {
+  const emails = await listMessages("trash");
   return (
     <MessageList
       emails={emails}

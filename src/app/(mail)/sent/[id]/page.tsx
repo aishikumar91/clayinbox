@@ -10,7 +10,7 @@ export default async function SentMessagePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const email = getMessage(id);
+  const email = await getMessage(id);
   if (!email || email.folder !== "sent") notFound();
   return <MessageView email={email} folder="sent" />;
 }

@@ -8,5 +8,5 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({ identities: listIdentities() });
+  return NextResponse.json({ identities: await listIdentities() });
 }

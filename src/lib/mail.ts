@@ -27,7 +27,6 @@ export type InboundPayload = {
     dkim?: string;
     dmarc?: string;
   };
-  // Plunk workflow templates may nest under event
   event?: InboundPayload;
 };
 
@@ -59,12 +58,17 @@ export function parseAddress(raw: string): { email: string; name?: string } {
 }
 
 export function normalizeSubject(subject: string): string {
-  return subject.replace(/^(re|fwd|fw):\s*/i, "").trim().toLowerCase() || "(no subject)";
+  return (
+    subject.replace(/^(re|fwd|fw):\s*/i, "").trim().toLowerCase() ||
+    "(no subject)"
+  );
 }
 
 export function threadKeyFor(subject: string, fallbackId: string): string {
   const normalized = normalizeSubject(subject);
-  return normalized === "(no subject)" ? `id:${fallbackId}` : `subj:${normalized}`;
+  return normalized === "(no subject)"
+    ? `id:${fallbackId}`
+    : `subj:${normalized}`;
 }
 
 export function htmlToPreview(htmlOrText: string, max = 160): string {
@@ -109,9 +113,11 @@ export function unwrapInbound(payload: InboundPayload): InboundPayload {
   return payload;
 }
 
-export function ensureDefaultIdentities() {
-  const existing = db.select().from(identities).all();
-  if (existing.length > 0) return existing;
+export async function ensureDefaultIdentities() {
+  const existing = await db.select().from(identities).limit(1);
+  if (existing.length > 0) {
+    return db.select().from(identities).orderBy(desc(identities.isDefault));
+  }
 
   const now = new Date().toISOString();
   const defaults = [
@@ -138,18 +144,15 @@ export function ensureDefaultIdentities() {
     },
   ];
 
-  for (const identity of defaults) {
-    db.insert(identities).values(identity).run();
-  }
+  await db.insert(identities).values(defaults);
   return defaults;
 }
 
-export function listIdentities() {
-  ensureDefaultIdentities();
-  return db.select().from(identities).orderBy(desc(identities.isDefault)).all();
+export async function listIdentities() {
+  return ensureDefaultIdentities();
 }
 
-export function listMessages(folder: Folder, query?: string) {
+export async function listMessages(folder: Folder, query?: string) {
   const clauses = [eq(messages.folder, folder)];
   if (query?.trim()) {
     const q = `%${query.trim()}%`;
@@ -167,32 +170,31 @@ export function listMessages(folder: Folder, query?: string) {
     .select()
     .from(messages)
     .where(and(...clauses))
-    .orderBy(desc(messages.receivedAt))
-    .all();
+    .orderBy(desc(messages.receivedAt));
 }
 
-export function getMessage(id: string): Message | undefined {
-  return db.select().from(messages).where(eq(messages.id, id)).get();
+export async function getMessage(id: string): Promise<Message | undefined> {
+  const rows = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
+  return rows[0];
 }
 
-export function markRead(id: string, read = true) {
-  db.update(messages).set({ read }).where(eq(messages.id, id)).run();
+export async function markRead(id: string, read = true) {
+  await db.update(messages).set({ read }).where(eq(messages.id, id));
 }
 
-export function moveMessage(id: string, folder: Folder) {
-  db.update(messages).set({ folder }).where(eq(messages.id, id)).run();
+export async function moveMessage(id: string, folder: Folder) {
+  await db.update(messages).set({ folder }).where(eq(messages.id, id));
 }
 
-export function folderCounts() {
-  const rows = db
+export async function folderCounts() {
+  const rows = await db
     .select({
       folder: messages.folder,
-      total: sql<number>`count(*)`,
-      unread: sql<number>`sum(case when ${messages.read} = 0 then 1 else 0 end)`,
+      total: sql<number>`count(*)::int`,
+      unread: sql<number>`coalesce(sum(case when ${messages.read} = false then 1 else 0 end), 0)::int`,
     })
     .from(messages)
-    .groupBy(messages.folder)
-    .all();
+    .groupBy(messages.folder);
 
   const counts: Record<string, { total: number; unread: number }> = {
     inbox: { total: 0, unread: 0 },
@@ -210,7 +212,7 @@ export function folderCounts() {
   return counts;
 }
 
-export function storeInbound(payload: InboundPayload): Message {
+export async function storeInbound(payload: InboundPayload): Promise<Message> {
   const data = unwrapInbound(payload);
   const fromRaw = data.from || "unknown@unknown";
   const from = parseAddress(fromRaw);
@@ -235,7 +237,9 @@ export function storeInbound(payload: InboundPayload): Message {
     threadKey: threadKeyFor(subject, messageId),
     fromAddress: from.email,
     fromName: from.name,
-    toAddresses: JSON.stringify(uniqueTo.length ? uniqueTo : [`inbox@${MAIL_DOMAIN}`]),
+    toAddresses: JSON.stringify(
+      uniqueTo.length ? uniqueTo : [`inbox@${MAIL_DOMAIN}`],
+    ),
     subject,
     bodyHtml: html,
     bodyText: text,
@@ -252,11 +256,15 @@ export function storeInbound(payload: InboundPayload): Message {
     createdAt: now,
   };
 
-  db.insert(messages).values(row).run();
-  return getMessage(id)!;
+  await db.insert(messages).values(row);
+  const stored = await getMessage(id);
+  if (!stored) {
+    throw new Error("Failed to store inbound message");
+  }
+  return stored;
 }
 
-export function storeOutbound(input: {
+export async function storeOutbound(input: {
   fromEmail: string;
   fromName?: string;
   to: string[];
@@ -264,7 +272,7 @@ export function storeOutbound(input: {
   bodyHtml: string;
   inReplyTo?: string;
   plunkEmailId?: string;
-}): Message {
+}): Promise<Message> {
   const now = new Date().toISOString();
   const id = nanoid();
   const text = htmlToPreview(input.bodyHtml, 5000);
@@ -288,6 +296,10 @@ export function storeOutbound(input: {
     receivedAt: now,
     createdAt: now,
   };
-  db.insert(messages).values(row).run();
-  return getMessage(id)!;
+  await db.insert(messages).values(row);
+  const stored = await getMessage(id);
+  if (!stored) {
+    throw new Error("Failed to store outbound message");
+  }
+  return stored;
 }

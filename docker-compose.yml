@@ -6,10 +6,5 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_PATH: /data/emailbox.db
-    volumes:
-      - emailbox-data:/data
+      DATABASE_URL: ${DATABASE_URL}
     restart: unless-stopped
-
-volumes:
-  emailbox-data:

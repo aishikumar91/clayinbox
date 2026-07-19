@@ -9,8 +9,8 @@ export default async function ComposePage({
   searchParams: Promise<{ replyTo?: string }>;
 }) {
   const params = await searchParams;
-  const identities = listIdentities();
-  const replyTo = params.replyTo ? getMessage(params.replyTo) : null;
+  const identities = await listIdentities();
+  const replyTo = params.replyTo ? (await getMessage(params.replyTo)) ?? null : null;
 
   return <ComposeForm identities={identities} replyTo={replyTo} />;
 }
