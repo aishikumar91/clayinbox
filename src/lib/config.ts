@@ -11,7 +11,7 @@ function resolvePlunkApiUrl(): string {
 
   if (
     !raw ||
-    raw.includes("api.useplunk.com") && !raw.includes("next-api.useplunk.com")
+    (raw.includes("api.useplunk.com") && !raw.includes("next-api.useplunk.com"))
   ) {
     return "https://next-api.useplunk.com";
   }
