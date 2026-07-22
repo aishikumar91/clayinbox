@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { PLUNK_API_URL } from "@/lib/config";
 import { getDb } from "@/lib/db";
 import { identities } from "@/lib/schema";
 
@@ -29,7 +30,7 @@ export async function GET() {
     service: "emailbox",
     domain,
     defaultFrom: process.env.DEFAULT_FROM_EMAIL || `info@${domain}`,
-    plunkApiUrl: process.env.PLUNK_API_URL || "https://next-api.useplunk.com",
+    plunkApiUrl: PLUNK_API_URL,
     databaseConfigured: Boolean(databaseUrl),
     databaseConnected,
     tablesOk,
