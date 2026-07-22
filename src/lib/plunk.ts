@@ -22,6 +22,39 @@ export type PlunkSendResult = {
   message?: string;
 };
 
+type PlunkErrorPayload = {
+  success?: boolean;
+  error?: string | { code?: string; message?: string; statusCode?: number };
+  message?: string;
+  code?: string | number;
+};
+
+function extractPlunkError(payload: PlunkErrorPayload, status: number): {
+  error: string;
+  message: string;
+} {
+  if (payload.error && typeof payload.error === "object") {
+    return {
+      error: payload.error.code || "plunk_send_failed",
+      message:
+        payload.error.message ||
+        `Plunk API returned ${status}`,
+    };
+  }
+
+  if (typeof payload.error === "string") {
+    return {
+      error: payload.error,
+      message: payload.message || payload.error,
+    };
+  }
+
+  return {
+    error: "plunk_send_failed",
+    message: payload.message || `Plunk API returned ${status}`,
+  };
+}
+
 export async function sendWithPlunk(
   input: PlunkSendInput,
   idempotencyKey?: string,
@@ -35,31 +68,46 @@ export async function sendWithPlunk(
     headers["Idempotency-Key"] = idempotencyKey;
   }
 
-  const response = await fetch(`${PLUNK_API_URL}/v1/send`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      to: input.to,
-      subject: input.subject,
-      body: input.body,
-      from: input.from,
-      reply: input.reply,
-      headers: input.headers,
-      subscribed: false,
-    }),
-  });
-
-  const payload = (await response.json().catch(() => ({}))) as PlunkSendResult;
-
-  if (!response.ok) {
+  let response: Response;
+  try {
+    response = await fetch(`${PLUNK_API_URL}/v1/send`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        to: input.to,
+        subject: input.subject,
+        body: input.body,
+        from: input.from,
+        reply: input.reply,
+        headers: input.headers,
+        subscribed: false,
+      }),
+    });
+  } catch (error) {
     return {
       success: false,
-      error: payload.error || "plunk_send_failed",
+      error: "plunk_network_error",
       message:
-        payload.message ||
-        `Plunk API returned ${response.status} ${response.statusText}`,
+        error instanceof Error
+          ? `Could not reach Plunk (${error.message})`
+          : "Could not reach Plunk",
     };
   }
 
-  return { ...payload, success: true };
+  const payload = (await response.json().catch(() => ({}))) as PlunkErrorPayload &
+    PlunkSendResult;
+
+  if (!response.ok || payload.success === false) {
+    const extracted = extractPlunkError(payload, response.status);
+    return {
+      success: false,
+      error: extracted.error,
+      message: extracted.message,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload.data,
+  };
 }
