@@ -55,11 +55,38 @@ function extractPlunkError(payload: PlunkErrorPayload, status: number): {
   };
 }
 
+export function inspectPlunkSecretKey(raw?: string | null): {
+  configured: boolean;
+  kind: "secret" | "public" | "unknown" | "missing";
+} {
+  const apiKey = raw?.trim() || "";
+  if (!apiKey) {
+    return { configured: false, kind: "missing" };
+  }
+  if (apiKey.startsWith("sk_")) {
+    return { configured: true, kind: "secret" };
+  }
+  if (apiKey.startsWith("pk_")) {
+    return { configured: true, kind: "public" };
+  }
+  return { configured: true, kind: "unknown" };
+}
+
 export async function sendWithPlunk(
   input: PlunkSendInput,
   idempotencyKey?: string,
 ): Promise<PlunkSendResult> {
-  const apiKey = requireEnv("PLUNK_SECRET_KEY");
+  const apiKey = requireEnv("PLUNK_SECRET_KEY").trim();
+  const keyInfo = inspectPlunkSecretKey(apiKey);
+  if (keyInfo.kind === "public") {
+    return {
+      success: false,
+      error: "plunk_public_key",
+      message:
+        "PLUNK_SECRET_KEY is a public key (pk_*). Replace it in Vercel with your secret key (sk_*), then redeploy.",
+    };
+  }
+
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",

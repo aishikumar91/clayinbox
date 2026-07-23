@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { PLUNK_API_URL } from "@/lib/config";
 import { getDb } from "@/lib/db";
+import { inspectPlunkSecretKey } from "@/lib/plunk";
 import { identities } from "@/lib/schema";
 
 export async function GET() {
   const databaseUrl = process.env.DATABASE_URL?.trim() || "";
-  const plunkKey = process.env.PLUNK_SECRET_KEY?.trim() || "";
+  const plunkKeyInfo = inspectPlunkSecretKey(process.env.PLUNK_SECRET_KEY);
   const mailboxPassword = process.env.MAILBOX_PASSWORD?.trim() || "";
   const domain = process.env.MAIL_DOMAIN || "clay-services.icu";
 
@@ -35,7 +36,8 @@ export async function GET() {
     databaseConnected,
     tablesOk,
     databaseError,
-    plunkConfigured: Boolean(plunkKey),
+    plunkConfigured: plunkKeyInfo.configured,
+    plunkKeyKind: plunkKeyInfo.kind,
     mailboxPasswordConfigured: Boolean(mailboxPassword),
   });
 }
