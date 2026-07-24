@@ -458,15 +458,23 @@ function ComposeModal({
     event.preventDefault();
     setSending(true);
     setError(null);
+    const recipients = to
+      .split(/[,;\s]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (recipients.length === 0) {
+      setSending(false);
+      setError("Enter at least one recipient email");
+      return;
+    }
+
     const response = await fetch("/api/emails/send", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         from,
-        to: to
-          .split(",")
-          .map((part) => part.trim())
-          .filter(Boolean),
+        to: recipients.length === 1 ? recipients[0] : recipients,
         subject,
         body: body.replace(/\n/g, "<br />"),
         replyToId: replyTo?.id,
@@ -475,7 +483,13 @@ function ComposeModal({
     const payload = await response.json().catch(() => ({}));
     setSending(false);
     if (!response.ok) {
-      setError(payload.message || payload.error || "Send failed");
+      setError(
+        payload.message ||
+          payload.error ||
+          (response.status === 401
+            ? "Session expired — log in again, then retry send"
+            : "Send failed"),
+      );
       return;
     }
     await onSent();

@@ -55,9 +55,12 @@ function extractPlunkError(payload: PlunkErrorPayload, status: number): {
   };
 }
 
-/** Strip quotes / Bearer prefix that often break Vercel env pastes. */
+/** Strip quotes / Bearer / junk that often break Vercel env pastes. */
 export function normalizePlunkApiKey(raw?: string | null): string {
-  let apiKey = (raw || "").trim();
+  let apiKey = (raw || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\r\n\t]/g, "")
+    .trim();
   if (
     (apiKey.startsWith('"') && apiKey.endsWith('"')) ||
     (apiKey.startsWith("'") && apiKey.endsWith("'"))
@@ -66,6 +69,15 @@ export function normalizePlunkApiKey(raw?: string | null): string {
   }
   if (/^bearer\s+/i.test(apiKey)) {
     apiKey = apiKey.replace(/^bearer\s+/i, "").trim();
+  }
+  // Prefer an embedded secret key if the env value was pasted messily.
+  const secretMatch = apiKey.match(/sk_[a-f0-9]+/i);
+  if (secretMatch) {
+    return secretMatch[0];
+  }
+  const publicMatch = apiKey.match(/pk_[a-f0-9]+/i);
+  if (publicMatch) {
+    return publicMatch[0];
   }
   return apiKey;
 }
@@ -82,10 +94,59 @@ export function inspectPlunkSecretKey(raw?: string | null): {
   if (apiKey.startsWith("sk_")) {
     return { configured: true, kind: "secret", normalized: apiKey };
   }
-  if (apiKey.startsWith("pk_") || apiKey.includes("pk_")) {
+  if (apiKey.startsWith("pk_")) {
     return { configured: true, kind: "public", normalized: apiKey };
   }
   return { configured: true, kind: "unknown", normalized: apiKey };
+}
+
+/** Lightweight auth check — does not send mail. */
+export async function probePlunkAuth(): Promise<{
+  ok: boolean;
+  status: number;
+  message: string;
+}> {
+  const keyInfo = inspectPlunkSecretKey(process.env.PLUNK_SECRET_KEY);
+  if (keyInfo.kind !== "secret") {
+    return {
+      ok: false,
+      status: 0,
+      message:
+        keyInfo.kind === "public"
+          ? "PLUNK_SECRET_KEY is a public pk_ key"
+          : "PLUNK_SECRET_KEY missing or not an sk_ secret key",
+    };
+  }
+
+  try {
+    const response = await fetch(`${PLUNK_API_URL}/v1/verify`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${keyInfo.normalized}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: "probe@example.com" }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as PlunkErrorPayload;
+    if (!response.ok || payload.success === false) {
+      const extracted = extractPlunkError(payload, response.status);
+      return {
+        ok: false,
+        status: response.status,
+        message: extracted.message,
+      };
+    }
+    return { ok: true, status: response.status, message: "Plunk secret key accepted" };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      message:
+        error instanceof Error
+          ? `Could not reach Plunk (${error.message})`
+          : "Could not reach Plunk",
+    };
+  }
 }
 
 export async function sendWithPlunk(

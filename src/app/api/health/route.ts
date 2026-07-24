@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { PLUNK_API_URL } from "@/lib/config";
 import { getDb } from "@/lib/db";
-import { inspectPlunkSecretKey } from "@/lib/plunk";
+import { inspectPlunkSecretKey, probePlunkAuth } from "@/lib/plunk";
 import { identities } from "@/lib/schema";
 
 export async function GET() {
@@ -26,6 +26,8 @@ export async function GET() {
     }
   }
 
+  const plunkAuth = await probePlunkAuth();
+
   return NextResponse.json({
     ok: true,
     service: "emailbox",
@@ -38,6 +40,9 @@ export async function GET() {
     databaseError,
     plunkConfigured: plunkKeyInfo.configured,
     plunkKeyKind: plunkKeyInfo.kind,
+    plunkAuthOk: plunkAuth.ok,
+    plunkAuthStatus: plunkAuth.status,
+    plunkAuthMessage: plunkAuth.message,
     mailboxPasswordConfigured: Boolean(mailboxPassword),
   });
 }

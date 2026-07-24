@@ -45,7 +45,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const identities = await listIdentities();
+    let identities: Awaited<ReturnType<typeof listIdentities>> = [];
+    try {
+      identities = await listIdentities();
+    } catch (identityError) {
+      console.error("listIdentities failed during send", identityError);
+    }
+
     const fromEmail = (
       parsed.data.from ||
       identities.find((i) => i.isDefault)?.email ||
@@ -58,7 +64,10 @@ export async function POST(request: Request) {
 
     if (!fromEmail || !fromEmail.endsWith(`@${MAIL_DOMAIN}`)) {
       return NextResponse.json(
-        { error: `From address must be on @${MAIL_DOMAIN}` },
+        {
+          error: "invalid_from",
+          message: `From address must be on @${MAIL_DOMAIN}`,
+        },
         { status: 400 },
       );
     }
@@ -71,19 +80,23 @@ export async function POST(request: Request) {
     let subject = parsed.data.subject;
     let inReplyTo: string | undefined;
     if (parsed.data.replyToId) {
-      const original = await getMessage(parsed.data.replyToId);
-      if (original) {
-        inReplyTo = original.messageId || original.id;
-        if (!/^re:/i.test(subject)) {
-          subject = `Re: ${original.subject}`;
+      try {
+        const original = await getMessage(parsed.data.replyToId);
+        if (original) {
+          inReplyTo = original.messageId || original.id;
+          if (!/^re:/i.test(subject)) {
+            subject = `Re: ${original.subject}`;
+          }
         }
+      } catch (replyError) {
+        console.error("reply lookup failed", replyError);
       }
     }
 
     const { html } = sanitizeBody(parsed.data.body);
     if (!html.trim()) {
       return NextResponse.json(
-        { error: "Message body is empty" },
+        { error: "empty_body", message: "Message body is empty" },
         { status: 400 },
       );
     }
@@ -93,10 +106,8 @@ export async function POST(request: Request) {
         to: toList.length === 1 ? toList[0] : toList,
         subject,
         body: html,
-        from: {
-          name: identity?.displayName || "Clay Services",
-          email: fromEmail,
-        },
+        // Plunk accepts string or {name,email}; string is the most reliable path.
+        from: fromEmail,
         reply: fromEmail,
       },
       nanoid(),
